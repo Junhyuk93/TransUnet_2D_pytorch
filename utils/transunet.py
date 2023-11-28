@@ -4,12 +4,11 @@ from einops import rearrange
 
 from utils.vit import ViT
 
-# spiking
-import snn.spiking_neuron as neuron
 
 class EncoderBottleneck(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1, base_width=64, reset_method = 'reduce_by_zero'):
+    def __init__(self, in_channels, out_channels, stride=1, base_width=64):
         super().__init__()
+
         self.downsample = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
             nn.BatchNorm2d(out_channels)
@@ -27,9 +26,7 @@ class EncoderBottleneck(nn.Module):
         self.norm3 = nn.BatchNorm2d(out_channels)
 
         self.relu = nn.ReLU(inplace=True)
-        # Spiking
-        # self.relu = neuron.IF_Neuron(v_threshold=1.0, v_reset=0.0, reset_method = reset_method)
-    
+
     def forward(self, x):
         x_down = self.downsample(x)
 
@@ -50,19 +47,17 @@ class EncoderBottleneck(nn.Module):
 
 
 class DecoderBottleneck(nn.Module):
-    def __init__(self, in_channels, out_channels, scale_factor=2, reset_method = 'reduce_by_zero'):
+    def __init__(self, in_channels, out_channels, scale_factor=2):
         super().__init__()
-        self.relu = neuron.IF_Neuron(v_threshold=1.0, v_reset=0.0, reset_method = reset_method)
+
         self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear', align_corners=True)
         self.layer = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            # neuron.IF_Neuron(v_threshold=0.5, v_reset=0.0, reset_method = reset_method),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(out_channels),
-            # nn.ReLU(inplace=True)
-            neuron.IF_Neuron(v_threshold=0.5, v_reset=0.0, reset_method = reset_method)
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x, x_concat=None):
@@ -76,12 +71,13 @@ class DecoderBottleneck(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, img_dim, in_channels, out_channels, head_num, mlp_dim, block_num, patch_dim, reset_method = 'reduce_by_zero'):
+    def __init__(self, img_dim, in_channels, out_channels, head_num, mlp_dim, block_num, patch_dim):
         super().__init__()
+
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=7, stride=2, padding=3, bias=False)
         self.norm1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        # self.relu = neuron.IF_Neuron(v_threshold=1.0, v_reset=0.0, reset_method = reset_method)
+
         self.encoder1 = EncoderBottleneck(out_channels, out_channels * 2, stride=2)
         self.encoder2 = EncoderBottleneck(out_channels * 2, out_channels * 4, stride=2)
         self.encoder3 = EncoderBottleneck(out_channels * 4, out_channels * 8, stride=2)
